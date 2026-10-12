@@ -1,236 +1,209 @@
----LAB_START---
-LAB_ID: 01-00-01
----MARKDOWN---
 # Construcción de un asistente para resumir y consultar documentos bancarios
 
-## Metadata
+## En pocas palabras
 
-| Campo | Valor |
-|-------|-------|
+Vas a construir un asistente que lee tres documentos de un banco de ejemplo, escribe un resumen de cada uno y responde preguntas sobre su contenido.
+
+Los documentos son de práctica (no son contratos reales):
+
+- Términos de una tarjeta de crédito.
+- Contrato de una cuenta corriente.
+- Reglamento de préstamos personales.
+
+Trabajarás en **Visual Studio Code**, en **Windows Server**. No instalas programas. El equipo ya está preparado.
+
+| | |
+|---|---|
 | **Duración** | 105 minutos |
-| **Complejidad** | Alta |
-| **Nivel Bloom** | Crear |
-| **Tecnologías clave** | Python 3.10.12, Hugging Face Transformers 4.38.2, PyTorch 2.1.2, T5-base, BERT-large-squad |
+| **Dónde** | Windows Server y Visual Studio Code |
+| **Qué entregas** | Resúmenes, respuestas, un mapa de lo que el asistente “miró” y tus conclusiones |
 
-## Descripción General
+## Qué vas a lograr
 
-En este laboratorio construirás un asistente conversacional completo capaz de resumir documentos bancarios y responder preguntas sobre su contenido. Integrarás un pipeline de resumen abstractivo con T5-base, un módulo de Question Answering con BERT fine-tuneado en SQuAD, y una interfaz interactiva con ipywidgets. El sistema procesará documentos bancarios reales (contratos, términos y reglamentos), evaluará la calidad de los resúmenes con métricas ROUGE y visualizará mapas de atención para interpretar las decisiones del modelo.
+- [ ] Crear los tres documentos de ejemplo.
+- [ ] Partir cada documento en trozos que el asistente pueda leer.
+- [ ] Pedir dos tipos de resumen y compararlos.
+- [ ] Hacer preguntas y ver qué tan seguro está el asistente de cada respuesta.
+- [ ] Abrir el mapa que muestra qué palabras usó para responder.
+- [ ] Probar el asistente con tus propias palabras y anotar si lo usarías con un documento real.
 
-## Objetivos de Aprendizaje
+## Palabras que vas a ver
 
-Al completar este laboratorio serás capaz de:
+| Palabra | Significado en este taller |
+|---------|----------------------------|
+| Resumen que copia frases | Elige las oraciones más importantes y las deja tal cual. |
+| Resumen redactado | Escribe un texto nuevo, más corto. En este taller sale en inglés. |
+| Confianza | Un número entre 0 y 1. Cerca de 1, el asistente está más seguro. Igual hay que revisar la respuesta en el documento. |
+| Mapa de atención | Una imagen. Los cuadros más oscuros son las palabras que el asistente relacionó para contestar. |
+| ROUGE | Un puntaje de parecido entre los dos resúmenes. Un número bajo es normal aquí, porque uno está en español y el otro en inglés. |
 
-- [ ] Implementar un pipeline end-to-end de ingesta, preprocesamiento y segmentación de documentos bancarios en chunks compatibles con modelos Transformer.
-- [ ] Construir y evaluar un módulo de resumen automático con T5-base usando métricas ROUGE-1, ROUGE-2 y ROUGE-L.
-- [ ] Desarrollar un módulo de respuesta a preguntas con BERT que localice respuestas precisas en documentos bancarios y visualice mapas de atención.
-- [ ] Integrar ambos módulos en una clase `BankingAssistant` con interfaz interactiva funcional en JupyterLab.
-- [ ] Analizar críticamente las limitaciones de modelos preentrenados en dominio específico y proponer estrategias de mejora.
+## Antes de empezar
 
-## Prerrequisitos
+El equipo debe tener Python y Visual Studio Code listos. Esa preparación está en [Prerequisitos.md](Prerequisitos.md) y **no forma parte de este taller**.
 
-### Conocimientos Requeridos
+Comprueba solo esto:
 
-| Área | Nivel |
-|------|-------|
-| Arquitectura Transformer (encoder-decoder, multi-head attention) | Intermedio |
-| Modelos BERT y T5 (tokenización, inferencia) | Intermedio |
-| Python 3.10+ (clases, f-strings, comprehensions) | Intermedio |
-| Hugging Face Transformers (pipeline API) | Básico |
-| JupyterLab (ejecución de notebooks) | Básico |
-| Métricas NLP (ROUGE, F1) | Básico |
+1. Abre **Visual Studio Code**.
+2. Menú **Terminal > Nueva terminal**.
+3. Escribe el siguiente comando y presiona **Enter**:
 
-### Acceso Requerido
+```powershell
+python --version
+```
 
-- Acceso a terminal con permisos de escritura en `/workspace/`
-- Conexión a Internet para descarga inicial de modelos desde Hugging Face Hub
-- Archivos de datos provistos: `contrato_cuenta_corriente.pdf`, `terminos_tarjeta_credito.txt`, `reglamento_prestamos.pdf`
+Debe aparecer `Python 3.10.12`.
 
-## Entorno del Laboratorio
+Si aparece un mensaje de que Python no se reconoce, o la versión es otra, detente y pide apoyo con el archivo [Prerequisitos.md](Prerequisitos.md).
 
-### Hardware Mínimo
+## Cómo está Visual Studio Code
 
-| Recurso | Mínimo | Recomendado |
-|---------|--------|-------------|
-| CPU | Intel i5 8ª gen / AMD Ryzen 5 3000+ | Intel i7 / Ryzen 7 |
-| RAM | 16 GB DDR4 | 32 GB DDR4 |
-| Almacenamiento libre | 20 GB | 30 GB |
-| GPU (opcional) | — | NVIDIA RTX 3060 (6 GB VRAM) |
-| Internet | 10 Mbps | 50 Mbps |
+Vas a usar tres zonas:
 
-### Software Requerido
+1. **Panel izquierdo.** Ahí están las carpetas y los archivos. Si no lo ves, menú **Ver > Explorador**.
+2. **Centro.** Ahí pegas cada programa y lo guardas.
+3. **Terminal de abajo.** Ahí escribes las órdenes y lees los resultados. Menú **Terminal > Nueva terminal**.
 
-| Paquete | Versión |
-|---------|---------|
-| Python | 3.10.12 |
-| JupyterLab | 4.1.5 |
-| PyTorch | 2.1.2 |
-| transformers | 4.38.2 |
-| sentencepiece | 0.2.0 |
-| datasets | 2.18.0 |
-| evaluate | 0.4.1 |
-| rouge-score | 0.1.2 |
-| PyPDF2 | 3.0.1 |
-| nltk | 3.8.1 |
-| ipywidgets | 8.1.2 |
-| matplotlib | 3.8.3 |
-| seaborn | 0.13.2 |
-| numpy | 1.26.4 |
-| pandas | 2.2.1 |
-| scikit-learn | 1.4.1 |
+Usa siempre esa terminal de abajo. Debe verse una ruta que termina en `AsistenteBancario` antes de cada orden. Si no es así, escribe:
+
+```powershell
+cd C:\Taller\AsistenteBancario
+```
+
+Para que las tildes se vean bien, escribe esto una vez en la terminal, al empezar:
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"
+chcp 65001 | Out-Null
+```
+
+## Cómo pegar un programa
+
+Cada paso te da un programa completo. Haz siempre lo mismo:
+
+1. En el panel izquierdo, clic derecho sobre la carpeta `src`.
+2. Elige **Nuevo archivo**.
+3. Escribe el nombre exacto que indica el paso (por ejemplo `crear_documentos.py`) y presiona **Enter**.
+4. Borra cualquier texto que aparezca solo.
+5. Copia **todo** el programa del paso y pégalo.
+6. Guarda con **Ctrl + S**.
+7. En la terminal escribe la orden del paso y presiona **Enter**.
+
+No hace falta modificar el programa. Pégalo completo.
+
+Cuando un paso dice que puede tardar, espera. La terminal se queda quieta mientras trabaja. No cierres Visual Studio Code.
 
 ---
 
-## Paso 1: Configuración del Entorno de Trabajo (15 min)
+## Paso 1. Crear la carpeta de trabajo (10 min)
 
-### Objetivo
+### Qué vas a hacer
 
-Crear la estructura de directorios, instalar todas las dependencias y descargar los modelos preentrenados necesarios para el laboratorio.
+Crear el lugar donde vivirá el asistente y descargar los dos modelos que va a usar: uno para resumir y otro para responder.
 
-### Instrucciones
+### Crear la carpeta
 
-1. Abre una terminal y crea la estructura de directorios del proyecto:
+1. En Visual Studio Code, menú **Archivo > Abrir carpeta**.
+2. Entra a `C:\Taller`.
+3. Clic derecho en un espacio vacío > **Nueva carpeta**.
+4. Nómbrala `AsistenteBancario` y ábrela con **Seleccionar carpeta**.
 
-```bash
-mkdir -p /workspace/nlp_banking_assistant/{data/raw,data/processed,models,outputs/mapas_atencion,notebooks,src}
-cd /workspace/nlp_banking_assistant
+En la terminal:
+
+```powershell
+cd C:\Taller\AsistenteBancario
+New-Item -ItemType Directory -Force -Path "data\raw","data\processed","models","outputs\mapas_atencion","src" | Out-Null
 ```
 
-2. Crea el archivo `requirements.txt` con las dependencias exactas:
+Si no sale texto en rojo, las carpetas quedaron creadas. En el panel izquierdo debes ver `data`, `models`, `outputs` y `src`.
 
-```bash
-cat > requirements.txt << 'EOF'
-torch==2.1.2
-transformers==4.38.2
-sentencepiece==0.2.0
-datasets==2.18.0
-accelerate==0.27.2
-evaluate==0.4.1
-rouge-score==0.1.2
-PyPDF2==3.0.1
-nltk==3.8.1
-ipywidgets==8.1.2
-jupyterlab==4.1.5
-matplotlib==3.8.3
-seaborn==0.13.2
-numpy==1.26.4
-pandas==2.2.1
-scikit-learn==1.4.1
-tokenizers==0.15.2
-EOF
-```
+### Descargar los modelos
 
-3. Crea un entorno virtual e instala las dependencias:
-
-```bash
-python3.10 -m venv /workspace/nlp_banking_assistant/.venv
-source /workspace/nlp_banking_assistant/.venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-4. Configura las variables de entorno para el cache de modelos:
-
-```bash
-export TRANSFORMERS_CACHE=/workspace/nlp_banking_assistant/models/
-export HF_HOME=/workspace/nlp_banking_assistant/models/
-echo 'export TRANSFORMERS_CACHE=/workspace/nlp_banking_assistant/models/' >> ~/.bashrc
-echo 'export HF_HOME=/workspace/nlp_banking_assistant/models/' >> ~/.bashrc
-```
-
-5. Descarga los recursos NLTK necesarios y los modelos preentrenados. Crea el script `src/setup_models.py`:
+Crea el archivo `src\descargar_modelos.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/setup_models.py
-import nltk
 import os
+import sys
+from pathlib import Path
 
-os.environ["TRANSFORMERS_CACHE"] = "/workspace/nlp_banking_assistant/models/"
+import nltk
 
-# Descargar recursos NLTK
-nltk.download('punkt', quiet=True)
-nltk.download('punkt_tab', quiet=True)
-nltk.download('stopwords', quiet=True)
+BASE = Path(__file__).resolve().parent.parent
+MODELOS = BASE / "models"
+NLTK_DIR = MODELOS / "nltk_data"
+MODELOS.mkdir(parents=True, exist_ok=True)
+NLTK_DIR.mkdir(parents=True, exist_ok=True)
 
-# Descargar modelos de Hugging Face
+os.environ["HF_HOME"] = str(MODELOS)
+os.environ["TRANSFORMERS_CACHE"] = str(MODELOS)
+os.environ["HF_HUB_CACHE"] = str(MODELOS)
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+nltk.data.path.append(str(NLTK_DIR))
+for recurso in ("punkt", "punkt_tab", "stopwords"):
+    try:
+        nltk.download(recurso, download_dir=str(NLTK_DIR), quiet=True)
+    except Exception:
+        pass
+
 from transformers import (
-    T5ForConditionalGeneration, T5Tokenizer,
-    AutoModelForQuestionAnswering, AutoTokenizer
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+    AutoModelForQuestionAnswering,
+    AutoTokenizer,
 )
 
-print("Descargando T5-base...")
+print("Descargando el modelo de resumen. Puede tardar varios minutos...")
 T5Tokenizer.from_pretrained("t5-base")
 T5ForConditionalGeneration.from_pretrained("t5-base")
 
-print("Descargando BERT-large-squad...")
-AutoTokenizer.from_pretrained("bert-large-uncased-whole-word-masking-finetuned-squad")
-AutoModelForQuestionAnswering.from_pretrained("bert-large-uncased-whole-word-masking-finetuned-squad")
+print("Descargando el modelo de preguntas. Puede tardar varios minutos...")
+NOMBRE_PREGUNTAS = "bert-large-uncased-whole-word-masking-finetuned-squad"
+AutoTokenizer.from_pretrained(NOMBRE_PREGUNTAS)
+AutoModelForQuestionAnswering.from_pretrained(NOMBRE_PREGUNTAS)
 
-print("✓ Todos los modelos descargados exitosamente.")
+print("Listo. Los modelos quedaron en la carpeta models.")
 ```
 
-6. Ejecuta el script de descarga:
+Guarda y ejecuta:
 
-```bash
-cd /workspace/nlp_banking_assistant
-python src/setup_models.py
+```powershell
+python src\descargar_modelos.py
 ```
 
-7. Verifica las versiones instaladas:
+### Qué debes ver
 
-```bash
-python -c "
-import torch, transformers, nltk, evaluate
-print(f'PyTorch: {torch.__version__}')
-print(f'Transformers: {transformers.__version__}')
-print(f'CUDA disponible: {torch.cuda.is_available()}')
-print(f'Evaluate: {evaluate.__version__}')
-print('✓ Entorno verificado correctamente.')
-"
+Al final:
+
+```text
+Listo. Los modelos quedaron en la carpeta models.
 ```
 
-### Resultado Esperado
-
-```
-PyTorch: 2.1.2
-Transformers: 4.38.2
-CUDA disponible: True  # o False si no hay GPU
-Evaluate: 0.4.1
-✓ Entorno verificado correctamente.
-```
-
-### Verificación
-
-```bash
-# Verificar estructura de directorios
-find /workspace/nlp_banking_assistant -type d | sort
-# Verificar que los modelos se descargaron
-ls /workspace/nlp_banking_assistant/models/
-# Debe mostrar subdirectorios con archivos de modelo
-```
+La carpeta `models` queda con archivos grandes. La primera descarga es la más lenta. Si más adelante un paso vuelve a cargar el mismo modelo, ya no lo descarga otra vez.
 
 ---
 
-## Paso 2: Ingesta y Preprocesamiento de Documentos Bancarios (20 min)
+## Paso 2. Crear los tres documentos del banco (15 min)
 
-### Objetivo
+### Qué vas a hacer
 
-Cargar documentos bancarios desde archivos PDF y texto plano, extraer su contenido, limpiarlo y segmentarlo en chunks de máximo 512 tokens para compatibilidad con BERT.
+Generar los tres textos de ejemplo. Son documentos ficticios, con cifras concretas, para poder comprobar después si el asistente responde bien.
 
-### Instrucciones
-
-1. Dado que los documentos bancarios reales son assets del laboratorio, crea documentos de muestra representativos para trabajar. Crea el script `src/create_sample_data.py`:
+Crea el archivo `src\crear_documentos.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/create_sample_data.py
-"""
-Genera documentos bancarios de muestra para el laboratorio.
-En un entorno real, estos archivos serían provistos como assets.
-"""
-import os
+import sys
+from pathlib import Path
 
-DATA_RAW = "/workspace/nlp_banking_assistant/data/raw"
+BASE = Path(__file__).resolve().parent.parent
+DATA_RAW = BASE / "data" / "raw"
+DATA_RAW.mkdir(parents=True, exist_ok=True)
 
-# Documento 1: Términos de tarjeta de crédito (texto plano)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 terminos_tc = """TÉRMINOS Y CONDICIONES - TARJETA DE CRÉDITO ORO
 Banco Nacional S.A. - Vigencia: Enero 2024
 
@@ -253,7 +226,6 @@ CAPÍTULO 6: CANCELACIÓN Y TERMINACIÓN
 El Cliente puede solicitar la cancelación de la tarjeta en cualquier momento, sin penalización, siempre que no existan saldos pendientes. El Banco puede cancelar la tarjeta por falta de pago de tres mensualidades consecutivas. En caso de cancelación, el saldo pendiente deberá liquidarse en un plazo máximo de 12 meses.
 """
 
-# Documento 2: Contrato de cuenta corriente (simulando texto extraído de PDF)
 contrato_cc = """CONTRATO DE APERTURA DE CUENTA CORRIENTE
 Banco Nacional S.A. - Contrato No. CC-2024-00891
 
@@ -282,7 +254,6 @@ OCTAVA: VIGENCIA Y TERMINACIÓN
 El presente contrato tiene vigencia indefinida. Cualquiera de las partes puede darlo por terminado mediante notificación escrita con 30 días de anticipación. En caso de terminación, el saldo disponible se entregará al Cuentahabiente dentro de los 5 días hábiles siguientes.
 """
 
-# Documento 3: Reglamento de préstamos (simulando texto extraído de PDF)
 reglamento_prestamos = """REGLAMENTO GENERAL DE PRÉSTAMOS PERSONALES
 Banco Nacional S.A. - Versión 3.1 - Actualizado: Marzo 2024
 
@@ -322,763 +293,522 @@ ARTÍCULO 10: MODIFICACIONES
 El Banco se reserva el derecho de modificar el presente reglamento, notificando a los clientes con 60 días de anticipación a través de los medios oficiales de comunicación.
 """
 
-# Guardar archivos
-with open(os.path.join(DATA_RAW, "terminos_tarjeta_credito.txt"), "w", encoding="utf-8") as f:
-    f.write(terminos_tc)
+documentos = {
+    "terminos_tarjeta_credito.txt": terminos_tc,
+    "contrato_cuenta_corriente.txt": contrato_cc,
+    "reglamento_prestamos.txt": reglamento_prestamos,
+}
 
-with open(os.path.join(DATA_RAW, "contrato_cuenta_corriente.txt"), "w", encoding="utf-8") as f:
-    f.write(contrato_cc)
+for nombre, texto in documentos.items():
+    ruta = DATA_RAW / nombre
+    ruta.write_text(texto, encoding="utf-8")
+    print(f"{nombre}: {ruta.stat().st_size} bytes")
 
-with open(os.path.join(DATA_RAW, "reglamento_prestamos.txt"), "w", encoding="utf-8") as f:
-    f.write(reglamento_prestamos)
-
-print(f"✓ Documentos creados en {DATA_RAW}/")
-for f in os.listdir(DATA_RAW):
-    filepath = os.path.join(DATA_RAW, f)
-    size = os.path.getsize(filepath)
-    print(f"  - {f} ({size} bytes)")
+print("Listo. Los tres documentos quedaron en data\\raw.")
 ```
 
-2. Ejecuta la creación de datos de muestra:
+Guarda y ejecuta:
 
-```bash
-python src/create_sample_data.py
+```powershell
+python src\crear_documentos.py
 ```
 
-3. Ahora crea el módulo principal de preprocesamiento. Crea `src/preprocessor.py`:
+### Qué debes ver
+
+Tres líneas con el nombre de cada archivo y su tamaño, y al final:
+
+```text
+Listo. Los tres documentos quedaron en data\raw.
+```
+
+Abre `data\raw\terminos_tarjeta_credito.txt` con doble clic y confirma que se lee en español. Haz lo mismo con los otros dos si quieres conocer las cifras antes de preguntarle al asistente.
+
+---
+
+## Paso 3. Preparar los documentos para el asistente (15 min)
+
+### Qué vas a hacer
+
+El asistente no lee el archivo de una sola vez. Este paso limpia el texto y lo parte en trozos de un tamaño que el modelo de preguntas puede aceptar (como máximo, unas 512 piezas internas llamadas tokens).
+
+También acepta un PDF: si más adelante dejas un `.pdf` en `data\raw`, el mismo programa extrae el texto. En este taller los tres archivos son `.txt`.
+
+Crea el archivo `src\preparar_documentos.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/preprocessor.py
-"""
-Módulo de ingesta y preprocesamiento de documentos bancarios.
-Extrae texto, limpia y segmenta en chunks de máximo 512 tokens.
-"""
+import json
 import os
 import re
-import json
+import sys
+from pathlib import Path
+
 import nltk
 from nltk.tokenize import sent_tokenize
 from transformers import AutoTokenizer
 
-nltk.download('punkt', quiet=True)
-nltk.download('punkt_tab', quiet=True)
+BASE = Path(__file__).resolve().parent.parent
+NLTK_DIR = BASE / "models" / "nltk_data"
+os.environ["HF_HOME"] = str(BASE / "models")
+os.environ["TRANSFORMERS_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
-class DocumentPreprocessor:
-    """Preprocesador de documentos bancarios."""
-    
-    def __init__(self, max_tokens=512, model_name="bert-large-uncased-whole-word-masking-finetuned-squad"):
-        self.max_tokens = max_tokens
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.raw_dir = "/workspace/nlp_banking_assistant/data/raw"
-        self.processed_dir = "/workspace/nlp_banking_assistant/data/processed"
-    
-    def load_text_file(self, filename):
-        """Carga un archivo de texto plano."""
-        filepath = os.path.join(self.raw_dir, filename)
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read()
-    
-    def load_pdf_file(self, filename):
-        """Carga un archivo PDF y extrae texto."""
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+NLTK_DIR.mkdir(parents=True, exist_ok=True)
+nltk.data.path.append(str(NLTK_DIR))
+for recurso in ("punkt", "punkt_tab"):
+    try:
+        nltk.download(recurso, download_dir=str(NLTK_DIR), quiet=True)
+    except Exception:
+        pass
+
+
+class PreparadorDocumentos:
+    """Lee un documento, lo limpia y lo parte en trozos."""
+
+    def __init__(self):
+        self.max_tokens = 512
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "bert-large-uncased-whole-word-masking-finetuned-squad"
+        )
+        self.raw_dir = BASE / "data" / "raw"
+        self.processed_dir = BASE / "data" / "processed"
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
+
+    def leer_texto(self, nombre):
+        return (self.raw_dir / nombre).read_text(encoding="utf-8")
+
+    def leer_pdf(self, nombre):
         try:
             from PyPDF2 import PdfReader
-            filepath = os.path.join(self.raw_dir, filename)
-            reader = PdfReader(filepath)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-            return text
+            lector = PdfReader(str(self.raw_dir / nombre))
+            return "\n".join((pagina.extract_text() or "") for pagina in lector.pages)
         except FileNotFoundError:
-            # Si no hay PDF, buscar versión .txt
-            txt_name = filename.replace(".pdf", ".txt")
-            return self.load_text_file(txt_name)
-    
-    def clean_text(self, text):
-        """Limpia el texto: normaliza espacios, elimina caracteres especiales innecesarios."""
-        # Eliminar múltiples saltos de línea
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        # Normalizar espacios
-        text = re.sub(r'[ \t]+', ' ', text)
-        # Eliminar espacios al inicio/fin de líneas
-        text = '\n'.join(line.strip() for line in text.split('\n'))
-        # Eliminar líneas vacías consecutivas
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        return text.strip()
-    
-    def segment_into_chunks(self, text):
-        """
-        Segmenta texto en chunks de máximo self.max_tokens tokens.
-        Respeta límites de oraciones para mantener coherencia.
-        """
-        sentences = sent_tokenize(text, language='spanish')
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        
-        for sentence in sentences:
-            # Tokenizar la oración para contar tokens
-            sentence_tokens = self.tokenizer.encode(sentence, add_special_tokens=False)
-            sentence_length = len(sentence_tokens)
-            
-            # Si una sola oración excede el máximo, dividirla
-            if sentence_length > self.max_tokens - 2:  # -2 para [CLS] y [SEP]
-                if current_chunk:
-                    chunks.append(' '.join(current_chunk))
-                    current_chunk = []
-                    current_length = 0
-                # Dividir oración larga en sub-chunks
-                words = sentence.split()
-                sub_chunk = []
-                sub_length = 0
-                for word in words:
-                    word_tokens = len(self.tokenizer.encode(word, add_special_tokens=False))
-                    if sub_length + word_tokens > self.max_tokens - 2:
-                        chunks.append(' '.join(sub_chunk))
-                        sub_chunk = [word]
-                        sub_length = word_tokens
+            return self.leer_texto(nombre.replace(".pdf", ".txt"))
+
+    def limpiar(self, texto):
+        texto = re.sub(r"\n{3,}", "\n\n", texto)
+        texto = re.sub(r"[ \t]+", " ", texto)
+        texto = "\n".join(linea.strip() for linea in texto.split("\n"))
+        texto = re.sub(r"\n{3,}", "\n\n", texto)
+        return texto.strip()
+
+    def partir(self, texto):
+        oraciones = sent_tokenize(texto, language="spanish")
+        trozos = []
+        actual = []
+        largo = 0
+        limite = self.max_tokens - 2
+
+        for oracion in oraciones:
+            tokens = self.tokenizer.encode(oracion, add_special_tokens=False)
+            if len(tokens) > limite:
+                if actual:
+                    trozos.append(" ".join(actual))
+                    actual = []
+                    largo = 0
+                sub = []
+                sub_largo = 0
+                for palabra in oracion.split():
+                    n = len(self.tokenizer.encode(palabra, add_special_tokens=False))
+                    if sub_largo + n > limite:
+                        trozos.append(" ".join(sub))
+                        sub = [palabra]
+                        sub_largo = n
                     else:
-                        sub_chunk.append(word)
-                        sub_length += word_tokens
-                if sub_chunk:
-                    current_chunk = sub_chunk
-                    current_length = sub_length
+                        sub.append(palabra)
+                        sub_largo += n
+                actual = sub
+                largo = sub_largo
                 continue
-            
-            # Verificar si agregar la oración excede el límite
-            if current_length + sentence_length > self.max_tokens - 2:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [sentence]
-                current_length = sentence_length
+
+            if largo + len(tokens) > limite:
+                trozos.append(" ".join(actual))
+                actual = [oracion]
+                largo = len(tokens)
             else:
-                current_chunk.append(sentence)
-                current_length += sentence_length
-        
-        # Agregar el último chunk
-        if current_chunk:
-            chunks.append(' '.join(current_chunk))
-        
-        return chunks
-    
-    def process_document(self, filename, doc_id):
-        """Procesa un documento completo: carga, limpia y segmenta."""
-        # Cargar según extensión
-        if filename.endswith('.pdf'):
-            text = self.load_pdf_file(filename)
-        else:
-            text = self.load_text_file(filename)
-        
-        # Limpiar
-        clean = self.clean_text(text)
-        
-        # Segmentar
-        chunks = self.segment_into_chunks(clean)
-        
-        # Guardar resultado
-        result = {
+                actual.append(oracion)
+                largo += len(tokens)
+
+        if actual:
+            trozos.append(" ".join(actual))
+        return trozos
+
+    def procesar(self, nombre, doc_id):
+        texto = self.leer_pdf(nombre) if nombre.endswith(".pdf") else self.leer_texto(nombre)
+        limpio = self.limpiar(texto)
+        trozos = self.partir(limpio)
+        resultado = {
             "document_id": doc_id,
-            "source_file": filename,
-            "full_text": clean,
-            "num_chunks": len(chunks),
+            "source_file": nombre,
+            "full_text": limpio,
+            "num_chunks": len(trozos),
             "chunks": [
                 {
                     "chunk_id": i,
-                    "text": chunk,
-                    "num_tokens": len(self.tokenizer.encode(chunk))
+                    "text": trozo,
+                    "num_tokens": len(self.tokenizer.encode(trozo)),
                 }
-                for i, chunk in enumerate(chunks)
-            ]
+                for i, trozo in enumerate(trozos)
+            ],
         }
-        
-        output_path = os.path.join(self.processed_dir, f"chunks_{doc_id}.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        
-        return result
+        destino = self.processed_dir / f"chunks_{doc_id}.json"
+        destino.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
+        return resultado
 
 
 def main():
-    """Procesa todos los documentos bancarios."""
-    preprocessor = DocumentPreprocessor()
-    
-    documents = [
+    preparador = PreparadorDocumentos()
+    documentos = [
         ("terminos_tarjeta_credito.txt", "terminos"),
         ("contrato_cuenta_corriente.txt", "contrato"),
         ("reglamento_prestamos.txt", "reglamento"),
     ]
-    
-    print("=" * 60)
-    print("PREPROCESAMIENTO DE DOCUMENTOS BANCARIOS")
-    print("=" * 60)
-    
-    for filename, doc_id in documents:
-        result = preprocessor.process_document(filename, doc_id)
-        print(f"\n📄 {filename}")
-        print(f"   Chunks generados: {result['num_chunks']}")
-        for chunk in result['chunks']:
-            print(f"   - Chunk {chunk['chunk_id']}: {chunk['num_tokens']} tokens")
-    
-    print("\n✓ Preprocesamiento completado.")
-    print(f"  Archivos guardados en: {preprocessor.processed_dir}/")
+    print("Preparando documentos...")
+    for nombre, doc_id in documentos:
+        resultado = preparador.procesar(nombre, doc_id)
+        print(f"{nombre}: {resultado['num_chunks']} trozos")
+        for trozo in resultado["chunks"]:
+            print(f"  trozo {trozo['chunk_id']}: {trozo['num_tokens']} tokens")
+    print(r"Listo. Los archivos quedaron en data\processed.")
 
 
 if __name__ == "__main__":
     main()
 ```
 
-4. Ejecuta el preprocesamiento:
+Guarda y ejecuta:
 
-```bash
-cd /workspace/nlp_banking_assistant
-python src/preprocessor.py
+```powershell
+python src\preparar_documentos.py
 ```
 
-### Resultado Esperado
+### Qué debes ver
 
-```
-============================================================
-PREPROCESAMIENTO DE DOCUMENTOS BANCARIOS
-============================================================
+Cada documento queda en **al menos un trozo**. El número de trozos y de tokens puede variar un poco. Lo importante es el cierre:
 
-📄 terminos_tarjeta_credito.txt
-   Chunks generados: 2
-   - Chunk 0: 387 tokens
-   - Chunk 1: 298 tokens
-
-📄 contrato_cuenta_corriente.txt
-   Chunks generados: 2
-   - Chunk 0: 412 tokens
-   - Chunk 1: 345 tokens
-
-📄 reglamento_prestamos.txt
-   Chunks generados: 3
-   - Chunk 0: 389 tokens
-   - Chunk 1: 401 tokens
-   - Chunk 2: 187 tokens
-
-✓ Preprocesamiento completado.
-  Archivos guardados en: /workspace/nlp_banking_assistant/data/processed/
+```text
+Listo. Los archivos quedaron en data\processed.
 ```
 
-> **Nota:** El número exacto de chunks y tokens puede variar ligeramente según la versión del tokenizador.
-
-### Verificación
-
-```bash
-# Verificar que los archivos JSON se crearon correctamente
-ls -la /workspace/nlp_banking_assistant/data/processed/
-# Inspeccionar estructura de un archivo
-python -c "
-import json
-with open('/workspace/nlp_banking_assistant/data/processed/chunks_terminos.json') as f:
-    data = json.load(f)
-print(f'Documento: {data[\"document_id\"]}')
-print(f'Chunks: {data[\"num_chunks\"]}')
-print(f'Primer chunk (primeros 100 chars): {data[\"chunks\"][0][\"text\"][:100]}...')
-"
-```
+En `data\processed` deben estar `chunks_terminos.json`, `chunks_contrato.json` y `chunks_reglamento.json`. Abre uno y comprueba que el texto sigue siendo el del documento, ahora dividido.
 
 ---
 
-## Paso 3: Módulo de Resumen Automático con T5-base (25 min)
+## Paso 4. Resumir los documentos (20 min)
 
-### Objetivo
+### Qué vas a hacer
 
-Implementar un pipeline de resumen abstractivo con T5-base y un resumen extractivo basado en TF-IDF, evaluar ambos con métricas ROUGE y comparar resultados.
+Pedir dos resúmenes de cada documento:
 
-### Instrucciones
+- Uno **copia** las tres frases que parecen más importantes.
+- El otro **redacta** un texto nuevo con el modelo T5. Ese modelo se entrenó sobre todo en inglés, así que el resumen sale en inglés. Es el resultado esperado.
 
-1. Crea el módulo de resumen `src/summarizer.py`:
+Después se comparan con un puntaje llamado ROUGE. Un número bajo no significa que el resumen esté mal: están en idiomas distintos.
+
+Crea el archivo `src\resumir.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/summarizer.py
-"""
-Módulo de resumen automático: extractivo (TF-IDF) y abstractivo (T5-base).
-"""
-import json
 import os
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from nltk.tokenize import sent_tokenize
-from transformers import T5ForConditionalGeneration, T5Tokenizer, pipeline
+import sys
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent.parent
+os.environ["HF_HOME"] = str(BASE / "models")
+os.environ["TRANSFORMERS_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+import json
+
 import evaluate
+import nltk
+import numpy as np
+import pandas as pd
+from nltk.tokenize import sent_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 
-os.environ["TRANSFORMERS_CACHE"] = "/workspace/nlp_banking_assistant/models/"
+NLTK_DIR = BASE / "models" / "nltk_data"
+NLTK_DIR.mkdir(parents=True, exist_ok=True)
+nltk.data.path.append(str(NLTK_DIR))
+for recurso in ("punkt", "punkt_tab"):
+    try:
+        nltk.download(recurso, download_dir=str(NLTK_DIR), quiet=True)
+    except Exception:
+        pass
 
 
-class ExtractiveSummarizer:
-    """Resumen extractivo basado en puntuación TF-IDF de oraciones."""
-    
+class ResumenQueCopia:
     def __init__(self):
         self.vectorizer = TfidfVectorizer(stop_words=None)
-    
-    def summarize(self, text, num_sentences=3):
-        """
-        Selecciona las oraciones más relevantes según TF-IDF.
-        
-        Args:
-            text: Texto completo a resumir.
-            num_sentences: Número de oraciones a extraer.
-        
-        Returns:
-            Resumen extractivo como string.
-        """
-        sentences = sent_tokenize(text, language='spanish')
-        
-        if len(sentences) <= num_sentences:
-            return text
-        
-        # Calcular TF-IDF para cada oración
-        tfidf_matrix = self.vectorizer.fit_transform(sentences)
-        
-        # Puntuar cada oración como la suma de sus pesos TF-IDF
-        sentence_scores = tfidf_matrix.sum(axis=1).A1
-        
-        # Seleccionar las top-N oraciones (manteniendo orden original)
-        top_indices = np.argsort(sentence_scores)[-num_sentences:]
-        top_indices = sorted(top_indices)
-        
-        summary = ' '.join([sentences[i] for i in top_indices])
-        return summary
+
+    def resumir(self, texto, num_oraciones=3):
+        oraciones = sent_tokenize(texto, language="spanish")
+        if len(oraciones) <= num_oraciones:
+            return texto
+        matriz = self.vectorizer.fit_transform(oraciones)
+        puntajes = matriz.sum(axis=1).A1
+        elegidas = sorted(np.argsort(puntajes)[-num_oraciones:])
+        return " ".join(oraciones[i] for i in elegidas)
 
 
-class AbstractiveSummarizer:
-    """Resumen abstractivo usando T5-base."""
-    
+class ResumenRedactado:
     def __init__(self):
-        print("Cargando modelo T5-base para resumen...")
+        print("Cargando el modelo de resumen...")
         self.tokenizer = T5Tokenizer.from_pretrained("t5-base")
         self.model = T5ForConditionalGeneration.from_pretrained("t5-base")
         self.model.eval()
-        print("✓ T5-base cargado.")
-    
-    def summarize(self, text, max_length=150, min_length=40):
-        """
-        Genera resumen abstractivo con T5-base.
-        
-        Args:
-            text: Texto a resumir (prefijo 'summarize:' se agrega automáticamente).
-            max_length: Longitud máxima del resumen en tokens.
-            min_length: Longitud mínima del resumen en tokens.
-        
-        Returns:
-            Resumen abstractivo generado.
-        """
-        # T5 requiere el prefijo de tarea
-        input_text = "summarize: " + text
-        
-        # Tokenizar con truncamiento a 512 tokens
-        inputs = self.tokenizer.encode(
-            input_text,
+        print("Modelo de resumen listo.")
+
+    def resumir(self, texto, max_length=150, min_length=40):
+        entrada = self.tokenizer.encode(
+            "summarize: " + texto,
             return_tensors="pt",
             max_length=512,
-            truncation=True
+            truncation=True,
         )
-        
-        # Generar resumen
-        summary_ids = self.model.generate(
-            inputs,
+        ids = self.model.generate(
+            entrada,
             max_length=max_length,
             min_length=min_length,
             length_penalty=2.0,
             num_beams=4,
             early_stopping=True,
-            no_repeat_ngram_size=3
+            no_repeat_ngram_size=3,
         )
-        
-        # Decodificar
-        summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        return summary
+        return self.tokenizer.decode(ids[0], skip_special_tokens=True)
 
 
-class SummaryEvaluator:
-    """Evaluación de resúmenes con métricas ROUGE."""
-    
+class Comparador:
     def __init__(self):
         self.rouge = evaluate.load("rouge")
-    
-    def evaluate_summary(self, prediction, reference):
-        """
-        Calcula métricas ROUGE entre resumen generado y referencia.
-        
-        Args:
-            prediction: Resumen generado.
-            reference: Resumen de referencia.
-        
-        Returns:
-            Diccionario con scores ROUGE-1, ROUGE-2, ROUGE-L.
-        """
-        results = self.rouge.compute(
-            predictions=[prediction],
-            references=[reference]
-        )
+
+    def comparar(self, redactado, copiado):
+        resultados = self.rouge.compute(predictions=[redactado], references=[copiado])
         return {
-            "rouge1": round(results["rouge1"], 4),
-            "rouge2": round(results["rouge2"], 4),
-            "rougeL": round(results["rougeL"], 4)
+            "rouge1": round(resultados["rouge1"], 4),
+            "rouge2": round(resultados["rouge2"], 4),
+            "rougeL": round(resultados["rougeL"], 4),
         }
 
 
 def main():
-    """Ejecuta pipeline de resumen sobre documentos bancarios."""
-    import pandas as pd
-    
-    processed_dir = "/workspace/nlp_banking_assistant/data/processed"
-    outputs_dir = "/workspace/nlp_banking_assistant/outputs"
-    
-    # Inicializar módulos
-    extractive = ExtractiveSummarizer()
-    abstractive = AbstractiveSummarizer()
-    evaluator = SummaryEvaluator()
-    
-    # Cargar documentos procesados
-    doc_files = ["chunks_terminos.json", "chunks_contrato.json", "chunks_reglamento.json"]
-    
-    results = []
-    
-    print("\n" + "=" * 60)
-    print("MÓDULO DE RESUMEN AUTOMÁTICO")
-    print("=" * 60)
-    
-    for doc_file in doc_files:
-        filepath = os.path.join(processed_dir, doc_file)
-        with open(filepath, "r", encoding="utf-8") as f:
-            doc_data = json.load(f)
-        
-        doc_id = doc_data["document_id"]
-        full_text = doc_data["full_text"]
-        
-        # Usar primer chunk para resumen (por límite de tokens de T5)
-        text_for_summary = doc_data["chunks"][0]["text"]
-        
-        print(f"\n{'─' * 50}")
-        print(f"📄 Documento: {doc_id}")
-        print(f"{'─' * 50}")
-        
-        # Resumen extractivo
-        extractive_summary = extractive.summarize(text_for_summary, num_sentences=3)
-        print(f"\n🔹 Resumen EXTRACTIVO:")
-        print(f"   {extractive_summary[:200]}...")
-        
-        # Resumen abstractivo
-        abstractive_summary = abstractive.summarize(text_for_summary)
-        print(f"\n🔸 Resumen ABSTRACTIVO (T5-base):")
-        print(f"   {abstractive_summary}")
-        
-        # Evaluar usando el extractivo como referencia (en ausencia de gold standard)
-        scores = evaluator.evaluate_summary(abstractive_summary, extractive_summary)
-        print(f"\n📊 Métricas ROUGE (abstractivo vs extractivo):")
-        print(f"   ROUGE-1: {scores['rouge1']}")
-        print(f"   ROUGE-2: {scores['rouge2']}")
-        print(f"   ROUGE-L: {scores['rougeL']}")
-        
-        results.append({
+    procesados = BASE / "data" / "processed"
+    salidas = BASE / "outputs"
+    salidas.mkdir(parents=True, exist_ok=True)
+
+    copia = ResumenQueCopia()
+    redacta = ResumenRedactado()
+    comparador = Comparador()
+    filas = []
+
+    print("Resumiendo documentos. Cada uno puede tardar unos minutos...")
+    for archivo in ("chunks_terminos.json", "chunks_contrato.json", "chunks_reglamento.json"):
+        datos = json.loads((procesados / archivo).read_text(encoding="utf-8"))
+        doc_id = datos["document_id"]
+        texto = datos["chunks"][0]["text"]
+        print(f"Trabajando en: {doc_id}")
+
+        resumen_copia = copia.resumir(texto, num_oraciones=3)
+        resumen_redactado = redacta.resumir(texto)
+        puntajes = comparador.comparar(resumen_redactado, resumen_copia)
+
+        print(f"Resumen que copia frases: {resumen_copia}")
+        print(f"Resumen redactado: {resumen_redactado}")
+        print(
+            f"Parecido ROUGE-1: {puntajes['rouge1']} | "
+            f"ROUGE-2: {puntajes['rouge2']} | ROUGE-L: {puntajes['rougeL']}"
+        )
+        filas.append({
             "document": doc_id,
-            "rouge1": scores["rouge1"],
-            "rouge2": scores["rouge2"],
-            "rougeL": scores["rougeL"],
-            "abstractive_summary": abstractive_summary,
-            "extractive_summary": extractive_summary
+            "rouge1": puntajes["rouge1"],
+            "rouge2": puntajes["rouge2"],
+            "rougeL": puntajes["rougeL"],
+            "resumen_redactado": resumen_redactado,
+            "resumen_que_copia": resumen_copia,
         })
-    
-    # Guardar resultados en CSV
-    df = pd.DataFrame(results)
-    csv_path = os.path.join(outputs_dir, "resultados_rouge.csv")
-    df[["document", "rouge1", "rouge2", "rougeL"]].to_csv(csv_path, index=False)
-    print(f"\n✓ Resultados guardados en: {csv_path}")
-    
-    # Mostrar tabla resumen
-    print("\n" + "=" * 60)
-    print("RESUMEN DE MÉTRICAS ROUGE")
-    print("=" * 60)
-    print(df[["document", "rouge1", "rouge2", "rougeL"]].to_string(index=False))
-    
-    return results
+
+    tabla = pd.DataFrame(filas)
+    destino = salidas / "resultados_rouge.csv"
+    tabla[["document", "rouge1", "rouge2", "rougeL"]].to_csv(destino, index=False, encoding="utf-8")
+    print(r"Listo. La comparación quedó en outputs\resultados_rouge.csv")
+    print(tabla[["document", "rouge1", "rouge2", "rougeL"]].to_string(index=False))
 
 
 if __name__ == "__main__":
     main()
 ```
 
-2. Ejecuta el módulo de resumen:
+Guarda y ejecuta:
 
-```bash
-cd /workspace/nlp_banking_assistant
-python src/summarizer.py
+```powershell
+python src\resumir.py
 ```
 
-### Resultado Esperado
+### Qué debes ver
 
-```
-Cargando modelo T5-base para resumen...
-✓ T5-base cargado.
+Para cada documento, un resumen en español (frases del original) y un resumen en inglés. Al final, una tabla con tres filas: `terminos`, `contrato` y `reglamento`.
 
-============================================================
-MÓDULO DE RESUMEN AUTOMÁTICO
-============================================================
+Abre `outputs\resultados_rouge.csv`. Debe tener una fila por documento.
 
-──────────────────────────────────────────────────
-📄 Documento: terminos
-──────────────────────────────────────────────────
-
-🔹 Resumen EXTRACTIVO:
-   La tasa de interés anual ordinaria es del 24.5% sobre saldos no pagados...
-
-🔸 Resumen ABSTRACTIVO (T5-base):
-   the annual interest rate is 24.5% on unpaid balances. the late payment rate is 36% per year. the annual fee is $1,200.00 MXN.
-
-📊 Métricas ROUGE (abstractivo vs extractivo):
-   ROUGE-1: 0.3245
-   ROUGE-2: 0.1102
-   ROUGE-L: 0.2876
-
-[... resultados para otros documentos ...]
-
-✓ Resultados guardados en: /workspace/nlp_banking_assistant/outputs/resultados_rouge.csv
-```
-
-> **Nota importante:** T5-base genera resúmenes en inglés por defecto ya que fue preentrenado principalmente en texto en inglés. Esto es esperado y será un punto de análisis en la sección de evaluación. Los scores ROUGE reflejan esta diferencia de idioma.
-
-### Verificación
-
-```bash
-# Verificar que el CSV de resultados existe y tiene contenido
-cat /workspace/nlp_banking_assistant/outputs/resultados_rouge.csv
-# Verificar que tiene 3 filas (una por documento) + header
-wc -l /workspace/nlp_banking_assistant/outputs/resultados_rouge.csv
-```
+Lee el resumen en inglés y compáralo con el documento. Busca si menciona la tasa, la comisión o el plazo. Anota mentalmente si se entiende el sentido, aunque el idioma cambió.
 
 ---
 
-## Paso 4: Módulo de Respuesta a Preguntas con BERT (25 min)
+## Paso 5. Hacer preguntas y ver el mapa (20 min)
 
-### Objetivo
+### Qué vas a hacer
 
-Implementar un módulo de Question Answering usando BERT fine-tuneado en SQuAD, con búsqueda de chunk relevante por similitud de coseno y visualización de mapas de atención.
+Hacer diez preguntas de negocio. El asistente:
 
-### Instrucciones
+1. Busca el trozo del documento más relacionado con la pregunta.
+2. Señala la frase que usa como respuesta.
+3. Entrega un número de confianza.
+4. Guarda tres imágenes del mapa de atención.
 
-1. Crea el módulo de QA `src/qa_module.py`:
+Crea el archivo `src\preguntar.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/qa_module.py
-"""
-Módulo de Question Answering con BERT y visualización de atención.
-"""
 import os
+import sys
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent.parent
+os.environ["HF_HOME"] = str(BASE / "models")
+os.environ["TRANSFORMERS_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 import json
-import torch
-import numpy as np
+import re
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
-from transformers import (
-    AutoTokenizer, 
-    AutoModelForQuestionAnswering,
-    pipeline
-)
-from sklearn.metrics.pairwise import cosine_similarity
+import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import AutoModelForQuestionAnswering, AutoTokenizer, pipeline
 
-os.environ["TRANSFORMERS_CACHE"] = "/workspace/nlp_banking_assistant/models/"
+NOMBRE_PREGUNTAS = "bert-large-uncased-whole-word-masking-finetuned-squad"
 
 
-class ChunkRetriever:
-    """Recupera el chunk más relevante para una pregunta dada."""
-    
+class BuscadorDeTrozos:
     def __init__(self):
         self.vectorizer = TfidfVectorizer()
-    
-    def find_relevant_chunk(self, question, chunks):
-        """
-        Encuentra el chunk más relevante usando similitud de coseno sobre TF-IDF.
-        
-        Args:
-            question: Pregunta del usuario.
-            chunks: Lista de diccionarios con campo 'text'.
-        
-        Returns:
-            Tupla (chunk_text, chunk_id, similarity_score).
-        """
-        texts = [chunk["text"] for chunk in chunks]
-        all_texts = [question] + texts
-        
-        tfidf_matrix = self.vectorizer.fit_transform(all_texts)
-        
-        # Similitud de coseno entre pregunta y cada chunk
-        question_vector = tfidf_matrix[0:1]
-        chunk_vectors = tfidf_matrix[1:]
-        
-        similarities = cosine_similarity(question_vector, chunk_vectors)[0]
-        best_idx = np.argmax(similarities)
-        
-        return texts[best_idx], best_idx, similarities[best_idx]
+
+    def buscar(self, pregunta, trozos):
+        textos = [trozo["text"] for trozo in trozos]
+        matriz = self.vectorizer.fit_transform([pregunta] + textos)
+        similitudes = cosine_similarity(matriz[0:1], matriz[1:])[0]
+        mejor = int(np.argmax(similitudes))
+        return textos[mejor], mejor, float(similitudes[mejor])
 
 
-class QAModule:
-    """Módulo de Question Answering con BERT."""
-    
+class ModuloPreguntas:
     def __init__(self):
-        model_name = "bert-large-uncased-whole-word-masking-finetuned-squad"
-        print(f"Cargando modelo QA: {model_name}...")
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        print("Cargando el modelo de preguntas...")
+        self.tokenizer = AutoTokenizer.from_pretrained(NOMBRE_PREGUNTAS)
         self.model = AutoModelForQuestionAnswering.from_pretrained(
-            model_name, 
-            output_attentions=True
+            NOMBRE_PREGUNTAS,
+            output_attentions=True,
         )
         self.model.eval()
-        
-        # Pipeline para uso simplificado
-        self.qa_pipeline = pipeline(
+        self.pipeline = pipeline(
             "question-answering",
             model=self.model,
-            tokenizer=self.tokenizer
+            tokenizer=self.tokenizer,
         )
-        
-        self.retriever = ChunkRetriever()
-        print("✓ Modelo QA cargado.")
-    
-    def answer_question(self, question, context):
-        """
-        Responde una pregunta dado un contexto.
-        
-        Args:
-            question: Pregunta en texto.
-            context: Texto de contexto donde buscar la respuesta.
-        
-        Returns:
-            Diccionario con 'answer', 'score', 'start', 'end'.
-        """
-        result = self.qa_pipeline(question=question, context=context)
+        self.buscador = BuscadorDeTrozos()
+        print("Modelo de preguntas listo.")
+
+    def responder_en_texto(self, pregunta, contexto):
+        resultado = self.pipeline(question=pregunta, context=contexto)
         return {
-            "answer": result["answer"],
-            "score": round(result["score"], 4),
-            "start": result["start"],
-            "end": result["end"]
+            "answer": resultado["answer"],
+            "score": round(resultado["score"], 4),
+            "start": resultado["start"],
+            "end": resultado["end"],
         }
-    
-    def answer_from_document(self, question, doc_data):
-        """
-        Responde una pregunta buscando primero el chunk relevante.
-        
-        Args:
-            question: Pregunta del usuario.
-            doc_data: Diccionario con datos del documento procesado.
-        
-        Returns:
-            Diccionario con respuesta, chunk usado y score.
-        """
-        chunks = doc_data["chunks"]
-        
-        # Recuperar chunk relevante
-        relevant_text, chunk_id, sim_score = self.retriever.find_relevant_chunk(
-            question, chunks
-        )
-        
-        # Obtener respuesta
-        answer = self.answer_question(question, relevant_text)
-        
+
+    def responder_documento(self, pregunta, documento):
+        texto, trozo_id, similitud = self.buscador.buscar(pregunta, documento["chunks"])
+        respuesta = self.responder_en_texto(pregunta, texto)
         return {
-            "question": question,
-            "answer": answer["answer"],
-            "confidence": answer["score"],
-            "chunk_id": chunk_id,
-            "chunk_similarity": round(sim_score, 4),
-            "context_snippet": relevant_text[:200] + "..."
+            "question": pregunta,
+            "answer": respuesta["answer"],
+            "confidence": respuesta["score"],
+            "chunk_id": trozo_id,
+            "chunk_similarity": round(similitud, 4),
+            "context_snippet": texto[:200] + "...",
         }
-    
-    def get_attention_weights(self, question, context):
-        """
-        Extrae los pesos de atención de la última capa del encoder.
-        
-        Args:
-            question: Pregunta.
-            context: Contexto.
-        
-        Returns:
-            Tupla (attention_weights, tokens) de la última capa.
-        """
-        inputs = self.tokenizer(
-            question, context,
+
+    def pesos_de_atencion(self, pregunta, contexto):
+        entradas = self.tokenizer(
+            pregunta,
+            contexto,
             return_tensors="pt",
             max_length=512,
-            truncation=True
+            truncation=True,
         )
-        
         with torch.no_grad():
-            outputs = self.model(**inputs)
-        
-        # Obtener atención de la última capa, primera cabeza
-        # Shape: (batch, heads, seq_len, seq_len)
-        last_layer_attention = outputs.attentions[-1]
-        
-        # Promediar sobre todas las cabezas
-        avg_attention = last_layer_attention.mean(dim=1).squeeze(0)
-        
-        # Obtener tokens para etiquetas
-        tokens = self.tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
-        
-        return avg_attention.numpy(), tokens
-    
-    def visualize_attention(self, question, context, save_path=None):
-        """
-        Genera y guarda un mapa de calor de atención.
-        
-        Args:
-            question: Pregunta formulada.
-            context: Contexto usado.
-            save_path: Ruta donde guardar la imagen PNG.
-        """
-        attention, tokens = self.get_attention_weights(question, context)
-        
-        # Limitar a primeros 40 tokens para visualización legible
-        max_display = min(40, len(tokens))
-        attention_subset = attention[:max_display, :max_display]
-        tokens_subset = tokens[:max_display]
-        
-        # Crear figura
-        fig, ax = plt.subplots(figsize=(12, 10))
+            salidas = self.model(**entradas)
+        promedio = salidas.attentions[-1].mean(dim=1).squeeze(0)
+        tokens = self.tokenizer.convert_ids_to_tokens(entradas["input_ids"][0])
+        return promedio.numpy(), tokens
+
+    def guardar_mapa(self, pregunta, contexto, ruta):
+        atencion, tokens = self.pesos_de_atencion(pregunta, contexto)
+        limite = min(40, len(tokens))
+        figura, eje = plt.subplots(figsize=(12, 10))
         sns.heatmap(
-            attention_subset,
-            xticklabels=tokens_subset,
-            yticklabels=tokens_subset,
+            atencion[:limite, :limite],
+            xticklabels=tokens[:limite],
+            yticklabels=tokens[:limite],
             cmap="YlOrRd",
-            ax=ax,
-            square=True
+            ax=eje,
+            square=True,
         )
-        ax.set_title(f"Mapa de Atención - Última Capa\nPregunta: {question[:60]}...", 
-                     fontsize=11)
-        ax.set_xlabel("Tokens (destino)")
-        ax.set_ylabel("Tokens (origen)")
-        plt.xticks(rotation=45, ha='right', fontsize=7)
+        eje.set_title(f"Mapa de atención\n{pregunta[:60]}")
+        eje.set_xlabel("Palabras relacionadas")
+        eje.set_ylabel("Palabras de origen")
+        plt.xticks(rotation=45, ha="right", fontsize=7)
         plt.yticks(fontsize=7)
         plt.tight_layout()
-        
-        if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
-            print(f"   💾 Mapa guardado: {save_path}")
-        
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(ruta, dpi=150, bbox_inches="tight")
         plt.close()
-        return attention_subset, tokens_subset
+        print(f"Mapa guardado: {ruta.name}")
+
+
+def nombre_seguro(texto):
+    limpio = re.sub(r"[^0-9A-Za-zÁÉÍÓÚáéíóúÑñ]+", "_", texto)
+    return limpio.strip("_")[:40]
 
 
 def main():
-    """Ejecuta el módulo QA sobre preguntas de prueba."""
-    processed_dir = "/workspace/nlp_banking_assistant/data/processed"
-    attention_dir = "/workspace/nlp_banking_assistant/outputs/mapas_atencion"
-    os.makedirs(attention_dir, exist_ok=True)
-    
-    # Inicializar módulo
-    qa = QAModule()
-    
-    # Cargar documentos
-    documents = {}
-    for doc_file in ["chunks_terminos.json", "chunks_contrato.json", "chunks_reglamento.json"]:
-        with open(os.path.join(processed_dir, doc_file), "r", encoding="utf-8") as f:
-            data = json.load(f)
-            documents[data["document_id"]] = data
-    
-    # Preguntas de prueba por documento
-    test_questions = [
+    procesados = BASE / "data" / "processed"
+    mapas = BASE / "outputs" / "mapas_atencion"
+    mapas.mkdir(parents=True, exist_ok=True)
+    modulo = ModuloPreguntas()
+
+    documentos = {}
+    for archivo in ("chunks_terminos.json", "chunks_contrato.json", "chunks_reglamento.json"):
+        datos = json.loads((procesados / archivo).read_text(encoding="utf-8"))
+        documentos[datos["document_id"]] = datos
+
+    preguntas = [
         ("terminos", "¿Cuál es la tasa de interés anual?"),
         ("terminos", "¿Qué comisiones aplican por disposición de efectivo?"),
         ("terminos", "¿Cuál es el pago mínimo?"),
@@ -1090,341 +820,239 @@ def main():
         ("reglamento", "¿Se puede hacer pago anticipado sin penalización?"),
         ("reglamento", "¿Qué pasa después de 90 días de mora?"),
     ]
-    
-    print("\n" + "=" * 60)
-    print("MÓDULO DE RESPUESTA A PREGUNTAS (QA)")
-    print("=" * 60)
-    
-    for i, (doc_id, question) in enumerate(test_questions):
-        result = qa.answer_from_document(question, documents[doc_id])
-        
-        print(f"\n{'─' * 50}")
-        print(f"❓ Pregunta {i+1}: {question}")
-        print(f"📄 Documento: {doc_id}")
-        print(f"✅ Respuesta: {result['answer']}")
-        print(f"   Confianza: {result['confidence']}")
-        print(f"   Chunk usado: #{result['chunk_id']} (similitud: {result['chunk_similarity']})")
-    
-    # Generar mapas de atención para 3 preguntas representativas
-    print(f"\n{'─' * 50}")
-    print("Generando mapas de atención...")
-    
-    attention_questions = [
+
+    print("Respondiendo preguntas. Puede tardar varios minutos...")
+    for numero, (doc_id, pregunta) in enumerate(preguntas, start=1):
+        resultado = modulo.responder_documento(pregunta, documentos[doc_id])
+        print(f"{numero}. [{doc_id}] {pregunta}")
+        print(f"   Respuesta: {resultado['answer']}")
+        print(f"   Confianza: {resultado['confidence']}")
+        print(f"   Trozo usado: {resultado['chunk_id']}")
+
+    print("Creando mapas de atención...")
+    for doc_id, pregunta in (
         ("terminos", "¿Cuál es la tasa de interés anual?"),
         ("contrato", "¿Cuál es el saldo mínimo requerido?"),
         ("reglamento", "¿Cuál es el monto máximo de préstamo?"),
-    ]
-    
-    for doc_id, question in attention_questions:
-        chunks = documents[doc_id]["chunks"]
-        context, _, _ = qa.retriever.find_relevant_chunk(question, chunks)
-        
-        # Truncar contexto para visualización
-        context_short = context[:300]
-        
-        save_path = os.path.join(
-            attention_dir, 
-            f"atencion_{doc_id}_{question[:20].replace(' ', '_').replace('?', '')}.png"
-        )
-        qa.visualize_attention(question, context_short, save_path=save_path)
-    
-    print("\n✓ Módulo QA ejecutado exitosamente.")
+    ):
+        contexto, _, _ = modulo.buscador.buscar(pregunta, documentos[doc_id]["chunks"])
+        ruta = mapas / f"atencion_{doc_id}_{nombre_seguro(pregunta)}.png"
+        modulo.guardar_mapa(pregunta, contexto[:300], ruta)
+
+    print(r"Listo. Las imágenes quedaron en outputs\mapas_atencion.")
 
 
 if __name__ == "__main__":
     main()
 ```
 
-2. Ejecuta el módulo de QA:
+Guarda y ejecuta:
 
-```bash
-cd /workspace/nlp_banking_assistant
-python src/qa_module.py
+```powershell
+python src\preguntar.py
 ```
 
-### Resultado Esperado
+### Qué debes ver
 
-```
-Cargando modelo QA: bert-large-uncased-whole-word-masking-finetuned-squad...
-✓ Modelo QA cargado.
+Diez respuestas. Contrástalas con el documento. Estas son las cifras correctas del texto de ejemplo:
 
-============================================================
-MÓDULO DE RESPUESTA A PREGUNTAS (QA)
-============================================================
+| Pregunta | Dato que está en el documento |
+|----------|-------------------------------|
+| Tasa de la tarjeta | 24.5% anual |
+| Disposición de efectivo | 5%, mínimo $150.00 MXN |
+| Pago mínimo | 5% del saldo o $200.00 MXN |
+| Saldo mínimo de la cuenta | $25,000.00 MXN |
+| Transferencia internacional | $350.00 MXN más el tipo de cambio |
+| Rendimiento de la cuenta | 3.2% si el saldo supera $100,000.00 MXN |
+| Monto máximo del préstamo | $500,000.00 MXN |
+| Tasa a 36 meses | 23.5% anual |
+| Pago anticipado | Sí, sin penalización |
+| Después de 90 días de mora | El crédito se marca vencido y empieza la cobranza |
 
-──────────────────────────────────────────────────
-❓ Pregunta 1: ¿Cuál es la tasa de interés anual?
-📄 Documento: terminos
-✅ Respuesta: 24.5%
-   Confianza: 0.7823
-   Chunk usado: #0 (similitud: 0.4512)
+La confianza y la redacción pueden variar. Si una respuesta no coincide con la tabla, el asistente se equivocó: anótala.
 
-──────────────────────────────────────────────────
-❓ Pregunta 2: ¿Qué comisiones aplican por disposición de efectivo?
-📄 Documento: terminos
-✅ Respuesta: 5% sobre el monto dispuesto, con un mínimo de $150.00 MXN
-   Confianza: 0.6234
-   Chunk usado: #0 (similitud: 0.3891)
+### Ver el mapa
 
-[... más preguntas ...]
-
-──────────────────────────────────────────────────
-Generando mapas de atención...
-   💾 Mapa guardado: /workspace/nlp_banking_assistant/outputs/mapas_atencion/atencion_terminos_¿Cuál_es_la_tasa_d.png
-   💾 Mapa guardado: /workspace/nlp_banking_assistant/outputs/mapas_atencion/atencion_contrato_¿Cuál_es_el_saldo_.png
-   💾 Mapa guardado: /workspace/nlp_banking_assistant/outputs/mapas_atencion/atencion_reglamento_¿Cuál_es_el_monto_.png
-
-✓ Módulo QA ejecutado exitosamente.
-```
-
-> **Nota:** Los scores de confianza y las respuestas exactas pueden variar ligeramente. BERT fue entrenado en inglés, por lo que su rendimiento en texto español es limitado pero funcional para términos numéricos y técnicos.
-
-### Verificación
-
-```bash
-# Verificar que se generaron los mapas de atención
-ls -la /workspace/nlp_banking_assistant/outputs/mapas_atencion/
-# Deben existir 3 archivos PNG
-find /workspace/nlp_banking_assistant/outputs/mapas_atencion -name "*.png" | wc -l
-```
+1. En el panel izquierdo abre `outputs`, luego `mapas_atencion`.
+2. Deben aparecer **3 imágenes** `.png`.
+3. Haz doble clic en una. Visual Studio Code la muestra.
+4. Los cuadros más oscuros son las palabras que el modelo relacionó con más fuerza. Busca si esas palabras están cerca de la cifra de la respuesta (una tasa, un monto, un plazo).
 
 ---
 
-## Paso 5: Integración del Asistente y Evaluación Final (20 min)
+## Paso 6. Usar el asistente completo (25 min)
 
-### Objetivo
+### Qué vas a hacer
 
-Integrar los módulos de resumen y QA en una clase unificada `BankingAssistant`, construir una interfaz interactiva con ipywidgets y realizar la evaluación final del sistema.
+Juntar el resumen y las preguntas en un solo asistente. Primero recorre solo los tres documentos y guarda un informe. Después te deja escribir, en la misma terminal, para probarlo tú.
 
-### Instrucciones
-
-1. Crea el módulo integrador `src/banking_assistant.py`:
+Crea el archivo `src\asistente.py` y pega este programa:
 
 ```python
-# /workspace/nlp_banking_assistant/src/banking_assistant.py
-"""
-Asistente bancario integrado: resumen + QA + interfaz interactiva.
-"""
-import os
 import json
+import os
 import sys
-sys.path.insert(0, "/workspace/nlp_banking_assistant/src")
+from pathlib import Path
 
-from summarizer import AbstractiveSummarizer, ExtractiveSummarizer, SummaryEvaluator
-from qa_module import QAModule
+SRC = Path(__file__).resolve().parent
+BASE = SRC.parent
+sys.path.insert(0, str(SRC))
 
-os.environ["TRANSFORMERS_CACHE"] = "/workspace/nlp_banking_assistant/models/"
+os.environ["HF_HOME"] = str(BASE / "models")
+os.environ["TRANSFORMERS_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_CACHE"] = str(BASE / "models")
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+from preguntar import ModuloPreguntas
+from resumir import Comparador, ResumenQueCopia, ResumenRedactado
 
 
-class BankingAssistant:
-    """
-    Asistente conversacional para documentos bancarios.
-    Combina resumen automático (T5-base) y respuesta a preguntas (BERT-squad).
-    """
-    
+class AsistenteBancario:
     def __init__(self):
-        print("=" * 60)
-        print("INICIALIZANDO ASISTENTE BANCARIO")
-        print("=" * 60)
-        
-        # Cargar módulos
-        self.extractive_summarizer = ExtractiveSummarizer()
-        self.abstractive_summarizer = AbstractiveSummarizer()
-        self.qa_module = QAModule()
-        self.evaluator = SummaryEvaluator()
-        
-        # Cargar documentos procesados
-        self.documents = self._load_documents()
-        
-        print("\n✓ Asistente bancario listo.")
-        print(f"  Documentos cargados: {list(self.documents.keys())}")
-    
-    def _load_documents(self):
-        """Carga todos los documentos procesados."""
-        processed_dir = "/workspace/nlp_banking_assistant/data/processed"
-        documents = {}
-        
-        for filename in os.listdir(processed_dir):
-            if filename.endswith(".json"):
-                filepath = os.path.join(processed_dir, filename)
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    documents[data["document_id"]] = data
-        
-        return documents
-    
-    def summarize(self, document_id, method="abstractive", num_sentences=3):
-        """
-        Genera un resumen del documento especificado.
-        
-        Args:
-            document_id: ID del documento ('terminos', 'contrato', 'reglamento').
-            method: 'abstractive' (T5) o 'extractive' (TF-IDF).
-            num_sentences: Número de oraciones para resumen extractivo.
-        
-        Returns:
-            Diccionario con resumen y metadatos.
-        """
-        if document_id not in self.documents:
-            return {"error": f"Documento '{document_id}' no encontrado. "
-                    f"Disponibles: {list(self.documents.keys())}"}
-        
-        doc = self.documents[document_id]
-        text = doc["chunks"][0]["text"]  # Usar primer chunk
-        
-        if method == "abstractive":
-            summary = self.abstractive_summarizer.summarize(text)
-        elif method == "extractive":
-            summary = self.extractive_summarizer.summarize(text, num_sentences)
+        print("Iniciando el asistente. La carga puede tardar varios minutos...")
+        self.copia = ResumenQueCopia()
+        self.redacta = ResumenRedactado()
+        self.preguntas = ModuloPreguntas()
+        self.comparador = Comparador()
+        self.documentos = self._cargar()
+        print("Asistente listo.")
+        print("Documentos: " + ", ".join(self.documentos.keys()))
+
+    def _cargar(self):
+        carpeta = BASE / "data" / "processed"
+        documentos = {}
+        for ruta in carpeta.glob("*.json"):
+            datos = json.loads(ruta.read_text(encoding="utf-8"))
+            documentos[datos["document_id"]] = datos
+        return documentos
+
+    def resumir(self, doc_id, metodo="redactado", num_oraciones=3):
+        if doc_id not in self.documentos:
+            return {"error": f"No existe '{doc_id}'. Usa: {', '.join(self.documentos)}"}
+        texto = self.documentos[doc_id]["chunks"][0]["text"]
+        if metodo == "redactado":
+            resumen = self.redacta.resumir(texto)
+        elif metodo == "copia":
+            resumen = self.copia.resumir(texto, num_oraciones)
         else:
-            return {"error": f"Método '{method}' no soportado. Use 'abstractive' o 'extractive'."}
-        
+            return {"error": "El método debe ser 'redactado' o 'copia'."}
         return {
-            "document_id": document_id,
-            "method": method,
-            "summary": summary,
-            "source_length": len(text.split()),
-            "summary_length": len(summary.split())
+            "document_id": doc_id,
+            "method": metodo,
+            "summary": resumen,
+            "source_length": len(texto.split()),
+            "summary_length": len(resumen.split()),
         }
-    
-    def ask(self, question, document_id):
-        """
-        Responde una pregunta sobre un documento específico.
-        
-        Args:
-            question: Pregunta en lenguaje natural.
-            document_id: ID del documento a consultar.
-        
-        Returns:
-            Diccionario con respuesta, confianza y metadatos.
-        """
-        if document_id not in self.documents:
-            return {"error": f"Documento '{document_id}' no encontrado. "
-                    f"Disponibles: {list(self.documents.keys())}"}
-        
-        doc = self.documents[document_id]
-        result = self.qa_module.answer_from_document(question, doc)
-        
-        return result
-    
-    def evaluate_summaries(self, document_id):
-        """
-        Evalúa ambos tipos de resumen con métricas ROUGE.
-        
-        Args:
-            document_id: ID del documento.
-        
-        Returns:
-            Diccionario con scores ROUGE.
-        """
-        extractive = self.summarize(document_id, method="extractive")
-        abstractive = self.summarize(document_id, method="abstractive")
-        
-        scores = self.evaluator.evaluate_summary(
-            abstractive["summary"], 
-            extractive["summary"]
-        )
-        
+
+    def preguntar(self, pregunta, doc_id):
+        if doc_id not in self.documentos:
+            return {"error": f"No existe '{doc_id}'. Usa: {', '.join(self.documentos)}"}
+        return self.preguntas.responder_documento(pregunta, self.documentos[doc_id])
+
+    def evaluar(self, doc_id):
+        copiado = self.resumir(doc_id, metodo="copia")
+        redactado = self.resumir(doc_id, metodo="redactado")
+        if "error" in copiado:
+            return copiado
+        puntajes = self.comparador.comparar(redactado["summary"], copiado["summary"])
         return {
-            "document_id": document_id,
-            "extractive_summary": extractive["summary"],
-            "abstractive_summary": abstractive["summary"],
-            "rouge_scores": scores
+            "document_id": doc_id,
+            "resumen_que_copia": copiado["summary"],
+            "resumen_redactado": redactado["summary"],
+            "rouge": puntajes,
         }
-    
-    def interactive_session(self):
-        """Ejecuta una sesión interactiva en terminal."""
-        print("\n" + "=" * 60)
-        print("🏦 ASISTENTE BANCARIO INTERACTIVO")
-        print("=" * 60)
-        print("Comandos disponibles:")
-        print("  resumir <doc_id>     - Genera resumen del documento")
-        print("  preguntar <doc_id>   - Hace una pregunta sobre el documento")
-        print("  evaluar <doc_id>     - Evalúa resúmenes con ROUGE")
-        print("  docs                 - Lista documentos disponibles")
-        print("  salir                - Termina la sesión")
-        print("─" * 60)
-        
+
+    def conversar(self):
+        print("")
+        print("Puedes escribir estos comandos:")
+        print("  docs")
+        print("  resumir terminos")
+        print("  preguntar contrato")
+        print("  evaluar reglamento")
+        print("  salir")
+        print("Los nombres válidos son: terminos, contrato, reglamento.")
+
         while True:
             try:
-                user_input = input("\n🏦 > ").strip()
+                orden = input("\nAsistente > ").strip()
             except (EOFError, KeyboardInterrupt):
+                print("\nSesión terminada.")
                 break
-            
-            if not user_input:
+            if not orden:
                 continue
-            
-            if user_input == "salir":
-                print("👋 Sesión terminada.")
+            if orden == "salir":
+                print("Sesión terminada.")
                 break
-            
-            elif user_input == "docs":
-                print(f"📚 Documentos disponibles: {list(self.documents.keys())}")
-            
-            elif user_input.startswith("resumir "):
-                doc_id = user_input.split(" ", 1)[1]
-                result = self.summarize(doc_id)
-                if "error" in result:
-                    print(f"❌ {result['error']}")
+            if orden == "docs":
+                print("Documentos: " + ", ".join(self.documentos.keys()))
+                continue
+            if orden.startswith("resumir "):
+                resultado = self.resumir(orden.split(" ", 1)[1].strip())
+                if "error" in resultado:
+                    print(resultado["error"])
                 else:
-                    print(f"\n📝 Resumen ({result['method']}) de '{doc_id}':")
-                    print(f"   {result['summary']}")
-                    print(f"   [Fuente: {result['source_length']} palabras → "
-                          f"Resumen: {result['summary_length']} palabras]")
-            
-            elif user_input.startswith("preguntar "):
-                doc_id = user_input.split(" ", 1)[1]
-                question = input("   ❓ Escribe tu pregunta: ").strip()
-                if question:
-                    result = self.ask(question, doc_id)
-                    if "error" in result:
-                        print(f"❌ {result['error']}")
-                    else:
-                        print(f"\n   ✅ Respuesta: {result['answer']}")
-                        print(f"   📊 Confianza: {result['confidence']}")
-            
-            elif user_input.startswith("evaluar "):
-                doc_id = user_input.split(" ", 1)[1]
-                result = self.evaluate_summaries(doc_id)
-                if "error" in result:
-                    print(f"❌ {result['error']}")
+                    print(resultado["summary"])
+                    print(
+                        f"Palabras del trozo: {resultado['source_length']}. "
+                        f"Palabras del resumen: {resultado['summary_length']}."
+                    )
+                continue
+            if orden.startswith("preguntar "):
+                doc_id = orden.split(" ", 1)[1].strip()
+                pregunta = input("Escribe la pregunta: ").strip()
+                if not pregunta:
+                    print("La pregunta está vacía.")
+                    continue
+                resultado = self.preguntar(pregunta, doc_id)
+                if "error" in resultado:
+                    print(resultado["error"])
                 else:
-                    print(f"\n📊 Evaluación ROUGE para '{doc_id}':")
-                    for metric, score in result["rouge_scores"].items():
-                        print(f"   {metric}: {score}")
-            
-            else:
-                print("❓ Comando no reconocido. Use: resumir, preguntar, evaluar, docs, salir")
+                    print(f"Respuesta: {resultado['answer']}")
+                    print(f"Confianza: {resultado['confidence']}")
+                continue
+            if orden.startswith("evaluar "):
+                resultado = self.evaluar(orden.split(" ", 1)[1].strip())
+                if "error" in resultado:
+                    print(resultado["error"])
+                else:
+                    print(f"ROUGE-1: {resultado['rouge']['rouge1']}")
+                    print(f"ROUGE-2: {resultado['rouge']['rouge2']}")
+                    print(f"ROUGE-L: {resultado['rouge']['rougeL']}")
+                continue
+            print("Comando no reconocido. Usa: docs, resumir, preguntar, evaluar o salir.")
 
 
-def run_full_evaluation():
-    """Ejecuta evaluación completa del asistente sin interacción."""
-    assistant = BankingAssistant()
-    
-    print("\n" + "=" * 60)
-    print("EVALUACIÓN COMPLETA DEL ASISTENTE")
-    print("=" * 60)
-    
-    # Evaluación de resúmenes
-    print("\n📝 EVALUACIÓN DE RESÚMENES")
-    print("─" * 40)
-    
-    all_rouge_scores = []
-    for doc_id in assistant.documents.keys():
-        result = assistant.evaluate_summaries(doc_id)
-        print(f"\n  📄 {doc_id}:")
-        print(f"     Extractivo: {result['extractive_summary'][:100]}...")
-        print(f"     Abstractivo: {result['abstractive_summary'][:100]}...")
-        print(f"     ROUGE-1: {result['rouge_scores']['rouge1']} | "
-              f"ROUGE-2: {result['rouge_scores']['rouge2']} | "
-              f"ROUGE-L: {result['rouge_scores']['rougeL']}")
-        all_rouge_scores.append(result["rouge_scores"])
-    
-    # Evaluación de QA
-    print("\n\n❓ EVALUACIÓN DE QA (10 preguntas)")
-    print("─" * 40)
-    
-    test_questions = [
+def evaluar_todo():
+    asistente = AsistenteBancario()
+    lineas = ["INFORME DEL ASISTENTE BANCARIO", ""]
+    puntajes = []
+
+    lineas.append("RESUMENES")
+    for doc_id in ("terminos", "contrato", "reglamento"):
+        resultado = asistente.evaluar(doc_id)
+        puntajes.append(resultado["rouge"])
+        print(f"Documento: {doc_id}")
+        print(f"Resumen que copia frases: {resultado['resumen_que_copia']}")
+        print(f"Resumen redactado: {resultado['resumen_redactado']}")
+        print(
+            f"ROUGE-1: {resultado['rouge']['rouge1']} | "
+            f"ROUGE-2: {resultado['rouge']['rouge2']} | "
+            f"ROUGE-L: {resultado['rouge']['rougeL']}"
+        )
+        lineas.append(f"Documento: {doc_id}")
+        lineas.append(f"Resumen que copia frases: {resultado['resumen_que_copia']}")
+        lineas.append(f"Resumen redactado: {resultado['resumen_redactado']}")
+        lineas.append(
+            f"ROUGE-1: {resultado['rouge']['rouge1']} | "
+            f"ROUGE-2: {resultado['rouge']['rouge2']} | "
+            f"ROUGE-L: {resultado['rouge']['rougeL']}"
+        )
+        lineas.append("")
+
+    pruebas = [
         ("terminos", "¿Cuál es la tasa de interés anual?"),
         ("terminos", "¿Qué comisiones aplican por disposición de efectivo?"),
         ("terminos", "¿Cuál es el pago mínimo?"),
@@ -1436,273 +1064,124 @@ def run_full_evaluation():
         ("reglamento", "¿Se puede hacer pago anticipado sin penalización?"),
         ("reglamento", "¿Qué pasa después de 90 días de mora?"),
     ]
-    
-    qa_results = []
-    for i, (doc_id, question) in enumerate(test_questions, 1):
-        result = assistant.ask(question, doc_id)
-        print(f"\n  {i}. [{doc_id}] {question}")
-        print(f"     → {result['answer']} (confianza: {result['confidence']})")
-        qa_results.append(result)
-    
-    # Análisis de confianza
-    confidences = [r["confidence"] for r in qa_results]
-    avg_confidence = sum(confidences) / len(confidences)
-    high_conf = sum(1 for c in confidences if c > 0.5)
-    
-    print(f"\n\n📊 RESUMEN DE EVALUACIÓN")
-    print("─" * 40)
-    print(f"  Confianza promedio QA: {avg_confidence:.4f}")
-    print(f"  Respuestas con alta confianza (>0.5): {high_conf}/{len(confidences)}")
-    
-    avg_rouge1 = sum(s["rouge1"] for s in all_rouge_scores) / len(all_rouge_scores)
-    print(f"  ROUGE-1 promedio: {avg_rouge1:.4f}")
-    
-    # Análisis de limitaciones
-    print(f"\n\n⚠️  LIMITACIONES IDENTIFICADAS")
-    print("─" * 40)
-    print("  1. T5-base genera resúmenes en inglés (preentrenado en corpus inglés)")
-    print("  2. BERT-squad tiene rendimiento reducido en texto español")
-    print("  3. La búsqueda por TF-IDF no captura semántica profunda")
-    print("  4. Chunks de 512 tokens pueden cortar información contextual")
-    
-    print(f"\n\n💡 ESTRATEGIAS DE MEJORA PROPUESTAS")
-    print("─" * 40)
-    print("  1. Fine-tuning de T5 con corpus bancario en español")
-    print("  2. Usar modelos multilingües: mT5-base, BETO para QA en español")
-    print("  3. Reemplazar TF-IDF por embeddings densos (sentence-transformers)")
-    print("  4. Implementar RAG con overlap entre chunks")
-    print("  5. Prompt engineering: agregar instrucciones en español al input de T5")
-    
-    print("\n✓ Evaluación completa finalizada.")
-    
-    return assistant
+
+    lineas.append("PREGUNTAS")
+    confianzas = []
+    for numero, (doc_id, pregunta) in enumerate(pruebas, start=1):
+        resultado = asistente.preguntar(pregunta, doc_id)
+        confianzas.append(resultado["confidence"])
+        texto = (
+            f"{numero}. [{doc_id}] {pregunta}\n"
+            f"   Respuesta: {resultado['answer']}\n"
+            f"   Confianza: {resultado['confidence']}"
+        )
+        print(texto)
+        lineas.append(texto)
+
+    promedio_confianza = sum(confianzas) / len(confianzas)
+    altas = sum(1 for valor in confianzas if valor > 0.5)
+    promedio_rouge = sum(item["rouge1"] for item in puntajes) / len(puntajes)
+    cierre = [
+        "",
+        "LECTURA RAPIDA",
+        f"Confianza promedio: {promedio_confianza:.4f}",
+        f"Respuestas con confianza mayor a 0.5: {altas} de {len(confianzas)}",
+        f"ROUGE-1 promedio: {promedio_rouge:.4f}",
+        "",
+        "QUE TENER EN CUENTA",
+        "1. El resumen redactado sale en inglés. El modelo se entrenó sobre todo con textos en inglés.",
+        "2. El modelo de preguntas también se entrenó en inglés. Con cifras y términos claros suele acertar; con frases largas en español puede fallar.",
+        "3. La búsqueda del trozo compara palabras, no el sentido completo de la pregunta.",
+        "4. Si el dato queda partido entre dos trozos, el asistente puede no verlo.",
+        "",
+        "QUE HARIA FALTA PARA UN DOCUMENTO REAL",
+        "1. Entrenar o cambiar a un modelo que trabaje bien en español.",
+        "2. Buscar el trozo por significado, no solo por palabras repetidas.",
+        "3. Hacer que los trozos se solapen, para no cortar una cláusula a la mitad.",
+        "4. Revisar siempre la respuesta contra el documento antes de usarla con un cliente.",
+    ]
+    for linea in cierre:
+        print(linea)
+    lineas.extend(cierre)
+
+    destino = BASE / "outputs" / "informe.txt"
+    destino.write_text("\n".join(lineas), encoding="utf-8")
+    print(r"Listo. El informe quedó en outputs\informe.txt")
+    return asistente
 
 
 if __name__ == "__main__":
-    assistant = run_full_evaluation()
+    asistente = evaluar_todo()
+    print("Puedes abrir outputs\\informe.txt y leerlo con calma.")
+    print("Cuando termines de leer, vuelve a esta terminal y prueba el asistente.")
+    asistente.conversar()
 ```
 
-2. Ejecuta la evaluación completa:
+Guarda y ejecuta:
 
-```bash
-cd /workspace/nlp_banking_assistant
-python src/banking_assistant.py
+```powershell
+python src\asistente.py
 ```
 
-3. Ahora crea el notebook con la interfaz interactiva. Crea `notebooks/01-00-01_asistente_bancario.ipynb` ejecutando:
+La carga y las respuestas pueden tardar bastante. Espera a ver `Asistente >`.
 
-```bash
-cd /workspace/nlp_banking_assistant
-python -c "
-import json
+### Leer el informe
 
-notebook = {
-    'cells': [
-        {
-            'cell_type': 'markdown',
-            'metadata': {},
-            'source': ['# 🏦 Asistente Bancario Inteligente\n',
-                      '## Laboratorio 01-00-01: Resumen y Consulta de Documentos\n',
-                      '\n',
-                      'Este notebook integra los módulos de resumen (T5-base) y QA (BERT-squad) ',
-                      'en una interfaz interactiva.']
-        },
-        {
-            'cell_type': 'code',
-            'metadata': {},
-            'source': [
-                'import sys\\n',
-                'import os\\n',
-                'sys.path.insert(0, \"/workspace/nlp_banking_assistant/src\")\\n',
-                'os.environ[\"TRANSFORMERS_CACHE\"] = \"/workspace/nlp_banking_assistant/models/\"\\n',
-                '\\n',
-                'from banking_assistant import BankingAssistant\\n',
-                '\\n',
-                '# Inicializar asistente\\n',
-                'assistant = BankingAssistant()'
-            ],
-            'outputs': [],
-            'execution_count': None
-        },
-        {
-            'cell_type': 'markdown',
-            'metadata': {},
-            'source': ['## Interfaz Interactiva con ipywidgets']
-        },
-        {
-            'cell_type': 'code',
-            'metadata': {},
-            'source': [
-                'import ipywidgets as widgets\\n',
-                'from IPython.display import display, HTML\\n',
-                '\\n',
-                '# Widgets\\n',
-                'doc_dropdown = widgets.Dropdown(\\n',
-                '    options=list(assistant.documents.keys()),\\n',
-                '    value=list(assistant.documents.keys())[0],\\n',
-                '    description=\"Documento:\",\\n',
-                '    style={\"description_width\": \"initial\"}\\n',
-                ')\\n',
-                '\\n',
-                'question_input = widgets.Text(\\n',
-                '    placeholder=\"Escribe tu pregunta aquí...\",\\n',
-                '    description=\"Pregunta:\",\\n',
-                '    style={\"description_width\": \"initial\"},\\n',
-                '    layout=widgets.Layout(width=\"80%\")\\n',
-                ')\\n',
-                '\\n',
-                'btn_summarize = widgets.Button(\\n',
-                '    description=\"📝 Resumir\",\\n',
-                '    button_style=\"info\",\\n',
-                '    layout=widgets.Layout(width=\"150px\")\\n',
-                ')\\n',
-                '\\n',
-                'btn_ask = widgets.Button(\\n',
-                '    description=\"❓ Preguntar\",\\n',
-                '    button_style=\"success\",\\n',
-                '    layout=widgets.Layout(width=\"150px\")\\n',
-                ')\\n',
-                '\\n',
-                'output_area = widgets.Output(\\n',
-                '    layout=widgets.Layout(border=\"1px solid #ccc\", padding=\"10px\", min_height=\"200px\")\\n',
-                ')\\n',
-                '\\n',
-                'def on_summarize(btn):\\n',
-                '    output_area.clear_output()\\n',
-                '    with output_area:\\n',
-                '        doc_id = doc_dropdown.value\\n',
-                '        print(f\"Generando resumen de: {doc_id}...\")\\n',
-                '        result = assistant.summarize(doc_id)\\n',
-                '        print(f\"\\\\n📝 Resumen ({result[\\'method\\']}):\")\\n',
-                '        print(f\"   {result[\\'summary\\']}\")\\n',
-                '        print(f\"\\\\n   [{result[\\'source_length\\']} palabras → {result[\\'summary_length\\']} palabras]\")\\n',
-                '\\n',
-                'def on_ask(btn):\\n',
-                '    output_area.clear_output()\\n',
-                '    with output_area:\\n',
-                '        doc_id = doc_dropdown.value\\n',
-                '        question = question_input.value\\n',
-                '        if not question:\\n',
-                '            print(\"⚠️ Escribe una pregunta primero.\")\\n',
-                '            return\\n',
-                '        print(f\"Buscando respuesta en: {doc_id}...\")\\n',
-                '        result = assistant.ask(question, doc_id)\\n',
-                '        print(f\"\\\\n❓ {question}\")\\n',
-                '        print(f\"✅ Respuesta: {result[\\'answer\\']}\")\\n',
-                '        print(f\"📊 Confianza: {result[\\'confidence\\']}\")\\n',
-                '\\n',
-                'btn_summarize.on_click(on_summarize)\\n',
-                'btn_ask.on_click(on_ask)\\n',
-                '\\n',
-                '# Layout\\n',
-                'ui = widgets.VBox([\\n',
-                '    widgets.HTML(\"<h3>🏦 Asistente Bancario</h3>\"),\\n',
-                '    doc_dropdown,\\n',
-                '    question_input,\\n',
-                '    widgets.HBox([btn_summarize, btn_ask]),\\n',
-                '    widgets.HTML(\"<hr>\"),\\n',
-                '    output_area\\n',
-                '])\\n',
-                '\\n',
-                'display(ui)'
-            ],
-            'outputs': [],
-            'execution_count': None
-        },
-        {
-            'cell_type': 'markdown',
-            'metadata': {},
-            'source': ['## Evaluación con Preguntas Predefinidas']
-        },
-        {
-            'cell_type': 'code',
-            'metadata': {},
-            'source': [
-                '# Ejecutar evaluación completa\\n',
-                'from banking_assistant import run_full_evaluation\\n',
-                'assistant = run_full_evaluation()'
-            ],
-            'outputs': [],
-            'execution_count': None
-        }
-    ],
-    'metadata': {
-        'kernelspec': {
-            'display_name': 'Python 3',
-            'language': 'python',
-            'name': 'python3'
-        },
-        'language_info': {
-            'name': 'python',
-            'version': '3.10.12'
-        }
-    },
-    'nbformat': 4,
-    'nbformat_minor': 5
-}
+Sin cerrar la terminal, abre `outputs\informe.txt` en el panel izquierdo.
 
-with open('notebooks/01-00-01_asistente_bancario.ipynb', 'w') as f:
-    json.dump(notebook, f, indent=2)
+Revisa:
 
-print('✓ Notebook creado: notebooks/01-00-01_asistente_bancario.ipynb')
-"
+- Si el resumen en inglés conserva las cifras del documento.
+- Cuántas respuestas tienen confianza mayor a 0.5.
+- Qué respuestas no coinciden con el documento. Esas no se deben usar.
+
+### Probarlo tú
+
+Vuelve a la terminal. Escribe cada línea y presiona **Enter**. Cuando pida la pregunta, escríbela y vuelve a presionar **Enter**.
+
+```text
+docs
+resumir terminos
+preguntar terminos
+¿Cuál es la comisión por anualidad?
+evaluar contrato
+preguntar reglamento
+¿Los préstamos de hasta 200000 requieren garantía?
+salir
 ```
 
-4. Exporta el reporte final en HTML:
+Haz al menos **una pregunta que se te ocurra**, distinta a las de la lista. Mira la confianza y comprueba la respuesta abriendo el documento en `data\raw`.
 
-```bash
-cd /workspace/nlp_banking_assistant
-# Si jupyter está instalado, exportar notebook como HTML
-jupyter nbconvert --to html notebooks/01-00-01_asistente_bancario.ipynb \
-    --output-dir outputs/ \
-    --output reporte_final.html 2>/dev/null || \
-    echo "Nota: nbconvert requiere ejecutar el notebook primero. El reporte se generará al ejecutar en JupyterLab."
-```
+---
 
-### Resultado Esperado
+## Paso 7. Escribir tus conclusiones (10 min)
 
-La ejecución de `banking_assistant.py` produce una evaluación completa:
+Crea un archivo en la carpeta del proyecto (clic derecho en el espacio vacío del panel izquierdo > **Nuevo archivo**) llamado `mis_conclusiones.txt`.
 
-```
-============================================================
-INICIALIZANDO ASISTENTE BANCARIO
-============================================================
-Cargando modelo T5-base para resumen...
-✓ T5-base cargado.
-Cargando modelo QA: bert-large-uncased-whole-word-masking-finetuned-squad...
-✓ Modelo QA cargado.
+Responde con tus palabras:
 
-✓ Asistente bancario listo.
-  Documentos cargados: ['terminos', 'contrato', 'reglamento']
+1. ¿El resumen en inglés dice lo mismo que el documento, o se pierde alguna cifra o condición?
+2. De las respuestas del informe, ¿cuáles coinciden con el documento y cuáles no?
+3. ¿Usarías este asistente con un contrato real del banco? Escribe qué tendría que mejorar antes de mostrarle una respuesta a un cliente.
 
-============================================================
-EVALUACIÓN COMPLETA DEL ASISTENTE
-============================================================
+Guarda con **Ctrl + S**.
 
-📝 EVALUACIÓN DE RESÚMENES
-────────────────────────────────────────
-  📄 terminos:
-     ROUGE-1: 0.32 | ROUGE-2: 0.11 | ROUGE-L: 0.28
+Con eso el taller está completo. Debes tener:
 
-  📄 contrato:
-     ROUGE-1: 0.28 | ROUGE-2: 0.09 | ROUGE-L: 0.25
+- Tres documentos en `data\raw`.
+- Tres archivos preparados en `data\processed`.
+- `outputs\resultados_rouge.csv`.
+- Tres imágenes en `outputs\mapas_atencion`.
+- `outputs\informe.txt`.
+- `mis_conclusiones.txt`.
 
-  📄 reglamento:
-     ROUGE-1: 0.30 | ROUGE-2: 0.10 | ROUGE-L: 0.27
+## Si algo no sale
 
-❓ EVALUACIÓN DE QA (10 preguntas)
-────────────────────────────────────────
-  1. [terminos] ¿Cuál es la tasa de interés anual?
-     → 24.5% (confianza: 0.78)
-  [... más respuestas ...]
-
-📊 RESUMEN DE EVALUACIÓN
-────────────────────────────────────────
-  Confianza promedio QA: 0.5432
-  Respuestas con alta confianza (>0.5): 7/10
-  ROUGE-1 promedio: 0.3000
-
-⚠️  LIMITACIONES IDENTIFICADAS
-────────────────────────────────────────
-  1. T5-base genera resúmenes en inglés
-  2.
+| Lo que ves | Qué hacer |
+|------------|-----------|
+| Python no se reconoce, o no es 3.10.12 | El equipo no está preparado. Usa [Prerequisitos.md](Prerequisitos.md). No instales programas por tu cuenta durante el taller. |
+| La terminal no está en `AsistenteBancario` | Escribe `cd C:\Taller\AsistenteBancario` y repite la orden. |
+| Un mensaje dice que no existe un archivo | Revisa el nombre en la carpeta `src`. Debe coincidir exactamente con el del paso. Guarda con **Ctrl + S** antes de ejecutar. |
+| La terminal lleva varios minutos sin texto nuevo | Está trabajando. Espera. La primera carga de cada modelo es la más lenta. |
+| Las tildes se ven raras | Vuelve a escribir `$env:PYTHONIOENCODING = "utf-8"` y `chcp 65001`, y ejecuta otra vez. |
+| Falta una carpeta | Repite la orden del Paso 1 que crea `data`, `models`, `outputs` y `src`. |
