@@ -20,7 +20,6 @@ Cada uno de estos laboratorios está diseñado para ofrecerte una experiencia pr
 - ⏱️ **Duración estimada**: 105 min (1 hora y 45 minutos), según la duración declarada en la guía.
 - 📁 **Prerrequisitos**: [Preparación del entorno de laboratorio](Capitulo01/Prerrequisitos.md).
 
-> **Nota sobre la duración:** los tiempos de los siete pasos de la guía suman 115 minutos (10 + 15 + 15 + 20 + 20 + 25 + 10). Es necesario conciliar esta distribución con los 105 minutos declarados.
 
 ---
 
