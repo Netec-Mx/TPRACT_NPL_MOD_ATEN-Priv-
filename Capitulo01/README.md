@@ -53,7 +53,7 @@ python --version
 
 Debe aparecer `Python 3.10.12`.
 
-Si aparece un mensaje de que Python no se reconoce, o la versión es otra, detente y pide apoyo con el archivo [Prerequisitos.md](Prerequisitos.md).
+Si aparece un mensaje de que Python no se reconoce, o la versión es otra, detente y pide apoyo con el archivo [Prerrequisitos.md](Prerrequisitos.md).
 
 ## Cómo está Visual Studio Code
 
