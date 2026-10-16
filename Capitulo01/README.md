@@ -1179,7 +1179,7 @@ Con eso el taller está completo. Debes tener:
 
 | Lo que ves | Qué hacer |
 |------------|-----------|
-| Python no se reconoce, o no es 3.10.12 | El equipo no está preparado. Usa [Prerequisitos.md](Prerequisitos.md). No instales programas por tu cuenta durante el taller. |
+| Python no se reconoce, o no es 3.10.12 | El equipo no está preparado. Usa [Prerrequisitos.md](Prerrequisitos.md). No instales programas por tu cuenta durante el taller. |
 | La terminal no está en `AsistenteBancario` | Escribe `cd C:\Taller\AsistenteBancario` y repite la orden. |
 | Un mensaje dice que no existe un archivo | Revisa el nombre en la carpeta `src`. Debe coincidir exactamente con el del paso. Guarda con **Ctrl + S** antes de ejecutar. |
 | La terminal lleva varios minutos sin texto nuevo | Está trabajando. Espera. La primera carga de cada modelo es la más lenta. |
