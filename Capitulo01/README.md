@@ -39,7 +39,7 @@ Trabajarás en **Visual Studio Code**, en **Windows Server**. No instalas progra
 
 ## Antes de empezar
 
-El equipo debe tener Python y Visual Studio Code listos. Esa preparación está en [Prerequisitos.md](Prerequisitos.md) y **no forma parte de este taller**.
+El equipo debe tener Python y Visual Studio Code listos. Esa preparación está en [Prerrequisitos.md](Prerrequisitos.md) y **no forma parte de este taller**.
 
 Comprueba solo esto:
 
